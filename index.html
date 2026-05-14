@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Volume Knob Kit Updater</title>
+    <!-- Pico CSS configs -->
+    <meta name="color-scheme" content="light dark" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.jade.min.css"
+    />
+  </head>
+
+  <body>
+    <header class="container">
+      <h1>Volume Knob Kit Updater</h1>
+    </header>
+    <main class="container">
+      <p>1. Select the firmware file (.bin file)</p>
+      <input type="file" id="fileInput" accept=".bin" />
+      <p>
+        2. Hold the update button on the volume knob kit while connecting it to
+        your PC using a USB C data and power cable
+      </p>
+      <p>
+        3. Release the update button on the volume knob kit when the RED power
+        light is on
+      </p>
+      <p>
+        4. Click the "Update Device" button and select the "Unknown device from
+        Qinheng Electronics"
+      </p>
+      <button class="contrast" id="connect_button">Update Device</button>
+      <!-- Modal example -->
+      <dialog id="flashing_complete_modal">
+        <article>
+          <header>
+            <button
+              aria-label="Close"
+              rel="prev"
+              id="close_modal_button"
+            ></button>
+            <p>
+              <strong>Your volume knob kit has been updated!</strong>
+            </p>
+          </header>
+        </article>
+      </dialog>
+      <!-- ./ Modal example -->
+    </main>
+    <footer class="container">
+      <p>Made with Pico CSS</p>
+      <p>
+        Bootloader protocol based on reverse eng. work by
+        <a href=" https://github.com/basilhussain/ch32v003-bootloader-docs"
+          >Basil Hussain</a
+        >
+      </p>
+    </footer>
+    <!-- To link external javascript file -->
+    <script src="index.js"></script>
+  </body>
+</html>
