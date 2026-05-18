@@ -33,25 +33,28 @@ close_modal_button.addEventListener("click", function (e) {
   flashing_complete_modal.close();
 });
 
-document
-  .getElementById("fileInput")
-  .addEventListener("change", function (event) {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.readAsArrayBuffer(file);
-      reader.onload = function (e) {
-        const arrayBuffer = e.target.result;
-        const byteArray = new Uint8Array(arrayBuffer);
-        firmware_file_content = byteArray;
-        console.log(firmware_file_content);
-      };
-      reader.onerror = function (e) {
-        console.error("Error reading file:", e.target.error);
-      };
-    }
-    this.value = "";
-  });
+const file_dialog = document.getElementById("fileInput");
+
+file_dialog.addEventListener("change", function (event) {
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.readAsArrayBuffer(file);
+    reader.onload = function (e) {
+      const arrayBuffer = e.target.result;
+      const byteArray = new Uint8Array(arrayBuffer);
+      firmware_file_content = byteArray;
+      console.log(firmware_file_content);
+    };
+    reader.onerror = function (e) {
+      console.error("Error reading file:", e.target.error);
+    };
+  }
+});
+
+file_dialog.addEventListener("click", function (event) {
+  this.value = "";
+});
 
 async function flash_device() {
   let device = await navigator.usb.requestDevice({
