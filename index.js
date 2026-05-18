@@ -50,6 +50,7 @@ document
         console.error("Error reading file:", e.target.error);
       };
     }
+    this.value = "";
   });
 
 async function flash_device() {
