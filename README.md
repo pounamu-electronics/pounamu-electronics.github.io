@@ -4,6 +4,10 @@ This repo contains the Volume Knob Kit Configurator webapp source.
 
 ## Revision History
 
+### v2.0.0
+
+- Support added for custom mapping input to output
+
 ### v1.0.0
 
 - Initial release
