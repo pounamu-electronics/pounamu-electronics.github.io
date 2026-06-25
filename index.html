@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Volume Knob Kit Updater</title>
+    <title>Volume Knob Kit Configurator</title>
     <!-- Pico CSS configs -->
     <meta name="color-scheme" content="light dark" />
     <link
@@ -14,26 +14,324 @@
 
   <body>
     <header class="container">
-      <h1>Volume Knob Kit Updater</h1>
+      <hgroup>
+        <h1>Volume Knob Kit Configurator</h1>
+        <p>Pounamu Electronics Limited</p>
+      </hgroup>
+
+      <p1>
+        <i
+          >This tool utilises the WebUSB API and has been tested using Google
+          Chrome. The WebUSB API generally works on Chromium based browsers.
+          Please consult the
+          <a
+            href="https://developer.mozilla.org/en-US/docs/Web/API/WebUSB_API#browser_compatibility"
+            target="_blank"
+            rel="noopener noreferrer"
+            >compatability list</a
+          >
+        </i>
+      </p1>
     </header>
     <main class="container">
-      <p>1. Select the firmware file (.bin file)</p>
-      <input type="file" id="fileInput" accept=".bin" />
-      <p>
-        2. Hold the update button on the volume knob kit while connecting it to
-        your PC using a USB C data and power cable
-      </p>
-      <p>
-        3. Release the update button on the volume knob kit when the RED power
-        light is on
-      </p>
-      <p>
-        4. Click the "Update Device" button and select the "Unknown device from
-        Qinheng Electronics"
-      </p>
-      <button class="contrast" id="connect_button">Update Device</button>
-      <!-- Modal example -->
-      <dialog id="flashing_complete_modal">
+      <details name="example">
+        <summary role="button" class="contrast outline secondary">
+          Windows Users
+        </summary>
+        <p>
+          Windows users need to configure the USB driver for this device
+          correctly before using the config tool for updating the Volume Knob
+          Kit and writing custom configurations
+        </p>
+        <ol>
+          <li>
+            Install
+            <a
+              href="https://zadig.akeo.ie/"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Zadig</a
+            >
+          </li>
+          <li>Open Zadig and select Options > List All Devices</li>
+          <li>
+            Press and hold the Update button on the Volume Knob Kit while
+            plugging the kit into your PC via USB. Keep the Update button held
+            throughout the entire process
+            <br />
+            <img
+              src="/res/img/UpdateButton.png"
+              alt="RE_SWC Update Button Location"
+              style="width: 30%; height: auto"
+            />
+          </li>
+          <li>
+            While keeping the Update button held, select the new USB device
+            listed from the device dropdown menu in Zadig (generally named USB
+            Module)
+          </li>
+          <li>
+            Select WinUSB (any version number) as the new driver and click
+            "Install Driver", "Replace Driver" or "Reinstall Driver"
+            <br />
+            <img src="/res/img/zadig_config.png" alt="Zadig config settings" />
+          </li>
+          <li>
+            Wait for the driver installation to complete. Once completed, you
+            may let go of the Update button
+            <br />
+            <img
+              src="/res/img//zadig_succ.png"
+              alt="Zadig successful driver update"
+            />
+          </li>
+        </ol>
+      </details>
+
+      <details name="example">
+        <summary role="button" class="contrast outline secondary">
+          Linux Users
+        </summary>
+        <ol>
+          <li>
+            Download the
+            <a href="/59-re-swc.rules" target="_blank" rel="noopener noreferrer"
+              >required rule file</a
+            >
+            and move it to <i>/etc/udev/rules.d/</i>
+          </li>
+
+          <li>
+            Run the following commands:
+            <article>
+              <blockquote>
+                sudo udevadm control --reload-rules <br />sudo udevadm trigger
+              </blockquote>
+            </article>
+          </li>
+        </ol>
+      </details>
+
+      <details name="example">
+        <summary role="button">Firmware Updating</summary>
+        <ol>
+          <li>
+            Download the
+            <a
+              href="https://github.com/lilindian16/RE_SWC_FW/releases/latest"
+              target="_blank"
+              rel="noopener noreferrer"
+              >latest firmware .bin file
+            </a>
+          </li>
+          <li>
+            Select the firmware file (.bin file)
+            <br />
+            <input type="file" id="fileInput" accept=".bin" />
+          </li>
+          <li>
+            Hold the update button on the volume knob kit while connecting it to
+            your PC via USB
+          </li>
+          <li>
+            Release the update button on the volume knob kit when the RED power
+            light is on
+          </li>
+          <li>
+            Click the "Update Device" button and select the "Unknown device from
+            Qinheng Electronics"
+            <br />
+            <button class="contrast" id="update_button">Update Device</button>
+          </li>
+        </ol>
+      </details>
+      <!-- Flashing dropdown end -->
+
+      <!-- Config dropdown start -->
+      <details name="example">
+        <summary role="button">Kit Configuration</summary>
+
+        <ol>
+          <li>
+            <!-- Headunit Selection -->
+            Select your headunit brand/type
+            <select
+              name="select"
+              aria-label="Select your headunit"
+              id="headunit_select"
+              required
+            ></select>
+          </li>
+          <li>
+            Now we can configure the different functions
+            <!-- Generic resistive function configure start -->
+            <fieldset id="gen_res_range_fieldset">
+              <label for="cw_rotate_range">CW Rotate</label>
+              <output for="cw_rotate_range">0</output>
+              <input
+                type="range"
+                id="cw_rotate_range"
+                min="0"
+                max="100"
+                step="1"
+              />
+              <label for="ccw_rotate_range">CCW Rotate</label>
+              <output for="ccw_rotate_range">0</output>
+              <input
+                type="range"
+                id="ccw_rotate_range"
+                min="0"
+                max="100"
+                step="1"
+              />
+
+              <label for="button_short_press_range">Button Short Press</label>
+              <output for="button_short_press_range">0</output>
+              <input
+                type="range"
+                id="button_short_press_range"
+                min="0"
+                max="100"
+                step="1"
+              />
+              <label for="button_long_press_range">Button Long Press</label>
+              <output for="button_long_press_range">0</output>
+              <input
+                type="range"
+                id="button_long_press_range"
+                min="0"
+                max="100"
+                step="1"
+              />
+              <label for="button_double_press_range" hidden="true"
+                >Button Double Press</label
+              >
+              <output for="button_double_press_range" hidden="true">0</output>
+              <input
+                type="range"
+                id="button_double_press_range"
+                min="0"
+                max="100"
+                step="1"
+                hidden="true"
+              />
+            </fieldset>
+            <!-- Generic resistive function configure end -->
+
+            <!-- Other branded headunit function configure start -->
+            <fieldset id="output_function_selection_fieldset">
+              <label for="cw_rotate_output">CW Rotate</label>
+              <select
+                name="select"
+                id="cw_rotate_output"
+                aria-label="CW Rotation"
+              >
+                <option value="not_configured" selected>Not Configured</option>
+                <option value="volume+" selected>Volume+</option>
+                <option value="volume-">Volume-</option>
+                <option value="mute">Mute</option>
+                <option value="next_track">Next Track</option>
+                <option value="prev_track">Previous Track</option>
+                <option value="play_pause">Play/Pause</option>
+                <option value="change_src">Change Source</option>
+              </select>
+              <label for="ccw_rotate_output">CCW Rotate</label>
+              <select
+                name="select"
+                id="ccw_rotate_output"
+                aria-label="CCW Rotation"
+              >
+                <option value="not_configured" selected>Not Configured</option>
+                <option value="volume+">Volume+</option>
+                <option value="volume-" selected>Volume-</option>
+                <option value="mute">Mute</option>
+                <option value="next_track">Next Track</option>
+                <option value="prev_track">Previous Track</option>
+                <option value="play_pause">Play/Pause</option>
+                <option value="change_src">Change Source</option>
+              </select>
+              <label for="button_short_press">Button Short Press</label>
+              <select
+                name="select"
+                id="button_short_press"
+                aria-label="Button Short Press"
+              >
+                <option value="not_configured" selected>Not Configured</option>
+                <option value="volume+">Volume+</option>
+                <option value="volume-">Volume-</option>
+                <option value="mute" selected>Mute</option>
+                <option value="next_track">Next Track</option>
+                <option value="prev_track">Previous Track</option>
+                <option value="play_pause">Play/Pause</option>
+                <option value="change_src">Change Source</option>
+              </select>
+              <label for="button_long_press">Button Long Press</label>
+              <select
+                name="select"
+                id="button_long_press"
+                aria-label="Button Long Press"
+              >
+                <option value="not_configured" selected>Not Configured</option>
+                <option value="volume+">Volume+</option>
+                <option value="volume-">Volume-</option>
+                <option value="mute">Mute</option>
+                <option value="next_track" selected>Next Track</option>
+                <option value="prev_track">Previous Track</option>
+                <option value="play_pause">Play/Pause</option>
+                <option value="change_src">Change Source</option>
+              </select>
+              <label for="button_double_press">Button Double Press</label>
+              <select
+                name="select"
+                id="button_double_press"
+                aria-label="Button Double Press"
+              >
+                <option value="not_configured" selected>Not Configured</option>
+                <option value="volume+">Volume+</option>
+                <option value="volume-">Volume-</option>
+                <option value="mute">Mute</option>
+                <option value="next_track">Next Track</option>
+                <option value="prev_track" selected>Previous Track</option>
+                <option value="play_pause">Play/Pause</option>
+                <option value="change_src">Change Source</option>
+              </select>
+            </fieldset>
+            <!-- Other branded headunit function configure end -->
+          </li>
+          <li>
+            Hold the volume knob down while connecting the volume knob kit to
+            your PC via USB. Keep the knob held down
+          </li>
+          <li>Release the volume knob when the white status light shines</li>
+          <li>
+            Click the "Write Config" button and select RE_SWC from the device
+            list
+            <!-- Trigger config write button start -->
+            <input
+              type="submit"
+              class="primary"
+              value="Read Config"
+              id="read_config_button"
+              hidden
+            />
+            <input
+              type="submit"
+              class="primary"
+              value="Write Config"
+              id="write_config_button"
+            />
+            <!-- Trigger config write button end -->
+          </li>
+          <li>
+            Your configuration will be written to the volume knob kit and the
+            device will auto-reboot
+          </li>
+        </ol>
+      </details>
+      <!-- Config dropdown end -->
+
+      <!-- Modal  -->
+      <dialog id="modal">
         <article>
           <header>
             <button
@@ -42,24 +340,48 @@
               id="close_modal_button"
             ></button>
             <p>
-              <strong>Your volume knob kit has been updated!</strong>
+              <strong id="modal_title"></strong>
             </p>
           </header>
+          <p id="modal_text"></p>
         </article>
       </dialog>
-      <!-- ./ Modal example -->
+      <!--  Modal  -->
     </main>
     <footer class="container">
-      <p>Made with Pico CSS</p>
       <p>
-        Bootloader protocol based on reverse eng. work by
-        <a href=" https://github.com/basilhussain/ch32v003-bootloader-docs"
+        Found an error? Please create an
+        <a
+          href="https://github.com/pounamu-electronics/pounamu-electronics.github.io/issues"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          issue report</a
+        >
+      </p>
+      <p>
+        Made with
+        <a
+          href="https://picocss.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Pico CSS
+        </a>
+      </p>
+      <p>
+        WCH Bootloader protocol based on reverse eng. work by
+        <a
+          href=" https://github.com/basilhussain/ch32v003-bootloader-docs"
+          target="_blank"
+          rel="noopener noreferrer"
           >Basil Hussain</a
         >
       </p>
-      <p>Version: 1.0.0</p>
+      <p id="version_label"></p>
     </footer>
     <!-- To link external javascript file -->
-    <script src="index.js"></script>
+    <script type="module" src="js/flasher.js"></script>
+    <script type="module" src="index.js"></script>
   </body>
 </html>
