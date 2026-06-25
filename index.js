@@ -1,399 +1,401 @@
-/* USB */
+import { Flasher } from "./js/flasher.js";
+
+const SOFTWARE_VERSION = "2.0.0";
+
+/**
+ * Create filters for WebUSB
+ * Filter for updating needs to include WCH VID
+ * Filter for kit config writing needs to include PID.Codes VID and RE_SWC PID
+ */
 const WCH_VID = 0x1a86;
-const ENDPOINT_OUT = 0x02;
+const PID_CODES_VID = 0x1209;
+const RE_SWC_PID = 0x6789;
+const usb_device_filter_update_mode = [{ vendorId: WCH_VID }];
+const usb_device_filter_config_mode = [
+  { vendorId: PID_CODES_VID, productId: RE_SWC_PID },
+];
 
-/* Commands */
-const WCH_COMMAND_AUTH = 0xa1;
-const WCH_COMMAND_END_AND_RESET = 0xa2;
-const WCH_COMMAND_START_XOR_KEYGEN = 0xa3;
-const WCH_COMMAND_ERASE_FLASH = 0xa4;
-const WCH_COMMAND_WRITE_FLASH = 0xa5;
-const WCH_COMMAND_VERIFY_FLASH = 0xa6;
-const WCH_COMMAND_READ_CONFIG = 0xa7;
+const HEADUNIT_BRAND_INDEXES = {
+  GENERIC_RESISTIVE: 1,
+  JVC: 2,
+  KENWOOD: 3,
+  ALPINE: 4,
+  PIONEER: 5,
+  USB_HID: 6,
+  SONY: 7,
+};
 
-/* CH32X035 specific */
-const CH32X035_VARIANT = 0x5e;
-const CH32X035_DEVICE_TYPE = 0x23;
+const HEADUNIT_BRAND_INDEX_ARRAY = [
+  HEADUNIT_BRAND_INDEXES.GENERIC_RESISTIVE,
+  HEADUNIT_BRAND_INDEXES.JVC,
+  HEADUNIT_BRAND_INDEXES.KENWOOD,
+  HEADUNIT_BRAND_INDEXES.ALPINE,
+  HEADUNIT_BRAND_INDEXES.PIONEER,
+  HEADUNIT_BRAND_INDEXES.USB_HID,
+  HEADUNIT_BRAND_INDEXES.SONY,
+];
 
-let usb_device_handle = null;
-let firmware_file_content = null;
+const HEADUNIT_BRAND_NAMES = [
+  "Generic Resistive",
+  "JVC",
+  "Kenwood",
+  "Alpine",
+  "Pioneer",
+  "USB HID",
+  "Sony",
+];
 
-const connect_button = document.getElementById("connect_button");
-connect_button.addEventListener("click", (event) => {
-  flash_device();
-});
+const OUTPUT_INDEXES = {
+  NOT_CONFIGURED: 0,
+  VOLUME_UP: 1,
+  VOLUME_DOWN: 2,
+  MUTE: 3,
+  NEXT_TRACK: 4,
+  PREVIOUS_TRACK: 5,
+  PLAY_PAUSE: 6,
+  CHANGE_SOURCE: 7,
+};
 
-const progress_bar = document.getElementById("progressBar");
+/**
+ * Output Support Matrix
+ * This matrix is used as a mask for output support for each brand. Used in conjuction with the
+ * OUTPUT_INDEXES object, we can dictate what outputs are supported by each brand/type of headunit
+ *
+ * Matrix indexes:
+ * [NOT_CONFIGURED, VOLUME+, VOLUME-, MUTE, NEXT, PREV, PLAY/PAUSE, CHANGE SOURCE]
+ *
+ * Note: Gen Res doesn't support output functions as it uses output resistances instead
+ */
+const HEADUNIT_BRAND_OUTPUT_SUPPORT_MATRIX = [
+  [0, 0, 0, 0, 0, 0, 0, 0] /* Padding for non-zero indexed headunit list */,
+  [1, 0, 0, 0, 0, 0, 0, 0] /* Gen Res */,
+  [1, 1, 1, 1, 1, 1, 0, 0] /* JVC */,
+  [1, 1, 1, 1, 1, 1, 1, 0] /* Kenwood */,
+  [1, 1, 1, 1, 1, 1, 0, 0] /* Alpine */,
+  [1, 1, 1, 1, 1, 1, 0, 1] /* Pioneer */,
+  [1, 1, 1, 1, 1, 1, 1, 0] /* USB-HID */,
+  [1, 1, 1, 1, 1, 1, 0, 0] /* Sony */,
+];
 
-const flashing_complete_modal = document.getElementById(
-  "flashing_complete_modal"
-);
-const close_modal_button = document.getElementById("close_modal_button");
-close_modal_button.addEventListener("click", function (e) {
-  flashing_complete_modal.close();
-});
+const DEFAULT_CONFIG_ARRAY = [
+  1 /* Gen Res mode (index is 1) */,
+  OUTPUT_INDEXES.VOLUME_UP /* Volume+ */,
+  OUTPUT_INDEXES.VOLUME_DOWN /* Volume- */,
+  OUTPUT_INDEXES.MUTE /* Mute */,
+  OUTPUT_INDEXES.NEXT_TRACK /* Next track */,
+  OUTPUT_INDEXES.PREVIOUS_TRACK /* Previous track */,
+  1 /* 1k clockwise */,
+  2 /* 2k couter clockwise */,
+  5 /* 4k short press */,
+  7 /* 6k long press */,
+  9 /* Double press kept in but ignored */,
+];
 
-const file_dialog = document.getElementById("fileInput");
+window.onload = function () {
+  const version_label = document.getElementById("version_label");
+  const update_button = document.getElementById("update_button");
+  const modal = document.getElementById("modal");
+  const write_config_button = document.getElementById("write_config_button");
+  const read_config_button = document.getElementById("read_config_button");
+  const headunit_select = document.getElementById("headunit_select");
 
-file_dialog.addEventListener("change", function (event) {
-  const file = event.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.readAsArrayBuffer(file);
-    reader.onload = function (e) {
-      const arrayBuffer = e.target.result;
-      const byteArray = new Uint8Array(arrayBuffer);
-      firmware_file_content = byteArray;
-      console.log(firmware_file_content);
-    };
-    reader.onerror = function (e) {
-      console.error("Error reading file:", e.target.error);
-    };
+  version_label.innerHTML = `Software Version: ${SOFTWARE_VERSION}`;
+
+  if ("usb" in navigator) {
+    update_button.addEventListener("click", (event) => {
+      const file_dialog = document.getElementById("fileInput");
+      const file = file_dialog.files[0];
+      console.log(file_dialog.files);
+      if (file) {
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(file);
+        reader.onload = function (e) {
+          const arrayBuffer = e.target.result;
+          const byteArray = new Uint8Array(arrayBuffer);
+          console.log(byteArray);
+          flash_device(byteArray);
+        };
+        reader.onerror = function (e) {
+          console.error("Error reading file:", e.target.error);
+        };
+      } else {
+        show_modal(
+          "Error! No firmware file selected",
+          "Please choose a firmware file to upload (.bin)"
+        );
+      }
+    });
+
+    const close_modal_button = document.getElementById("close_modal_button");
+    close_modal_button.addEventListener("click", function (e) {
+      modal.close();
+    });
+
+    write_config_button.addEventListener("click", function () {
+      console.log("Writing config");
+      let output_mapping = [];
+      if (headunit_select.value == "Generic Resistive") {
+        console.log("Getting res values");
+        output_mapping = get_gen_res_selected();
+      } else {
+        output_mapping = get_functions_selected(headunit_select.value);
+      }
+      if (output_mapping.length) {
+        write_config_to_device(output_mapping);
+      }
+    });
+
+    read_config_button.addEventListener("click", function () {
+      console.log("Reading config");
+      read_device_config();
+    });
+
+    headunit_select.addEventListener("change", function () {
+      const headunit_index = parseInt(headunit_select.value, 10);
+      if (headunit_index == HEADUNIT_BRAND_INDEXES.GENERIC_RESISTIVE) {
+        update_gen_res_range();
+      } else {
+        update_output_functions_select(headunit_index);
+      }
+    });
+
+    for (let i = 0; i < HEADUNIT_BRAND_NAMES.length; i++) {
+      const option = new Option(
+        HEADUNIT_BRAND_NAMES[i],
+        HEADUNIT_BRAND_INDEX_ARRAY[i]
+      );
+      headunit_select.add(option);
+    }
+    const myFieldset = document.getElementById("gen_res_range_fieldset");
+    const range_inputs = myFieldset.querySelectorAll("input");
+    const range_outputs = myFieldset.querySelectorAll("output");
+    let config_index = 6;
+    let range_index = 0;
+    for (const range_input of range_inputs) {
+      range_input.value = DEFAULT_CONFIG_ARRAY[config_index];
+      for (const range_output of range_outputs) {
+        const output_for = range_output.htmlFor;
+        if (output_for == range_input.id) {
+          range_output.innerHTML = range_input.value + "k ohms";
+        }
+      }
+      range_input.addEventListener("input", function (event) {
+        let range_id = event.target.id;
+        for (const range_output of range_outputs) {
+          const output_for = range_output.htmlFor;
+          if (output_for == range_id) {
+            range_output.innerHTML = event.target.value + "k ohms";
+          }
+        }
+      });
+      config_index += 1;
+      range_index += 1;
+    }
+    update_output_functions_select(HEADUNIT_BRAND_INDEXES.GENERIC_RESISTIVE);
+  } else {
+    console.error("No USB functions available in this browser");
+    show_modal("ERROR! No USB access!", "Please use a supported browser");
   }
-});
+};
 
-file_dialog.addEventListener("click", function (event) {
-  this.value = "";
-});
-
-async function flash_device() {
-  let device = await navigator.usb.requestDevice({
-    filters: [{ vendorId: WCH_VID }],
-  });
-  console.log("Vendor Id:", device.vendorId);
-  console.log("Product Id: ", device.productId);
-  await device.open();
-  const configs = device.configurations;
-  console.log(configs);
-  await device.selectConfiguration(1);
-  await device.claimInterface(0);
-
-  let flasher_obj = new CH32_Flasher(device);
-  flasher_obj.flash_firmware(
-    firmware_file_content,
-    firmware_file_content.length
+function update_supported_outputs(headunit_chosen_index) {
+  const output_function_selection_fieldset = document.getElementById(
+    "output_function_selection_fieldset"
   );
+  const output_selectors =
+    output_function_selection_fieldset.querySelectorAll("select");
+  var default_index = 1; // Avoid using the Not Assigned as default
+  for (const selector of output_selectors) {
+    const options = selector.querySelectorAll("option");
+    selector.selectedIndex = default_index;
+    default_index++;
+    var output_option_index = 0;
+    for (const option of options) {
+      if (
+        HEADUNIT_BRAND_OUTPUT_SUPPORT_MATRIX[headunit_chosen_index][
+          output_option_index
+        ]
+      ) {
+        option.disabled = false;
+      } else {
+        option.disabled = true;
+      }
+      output_option_index++;
+    }
+  }
 }
 
-class CH32_Flasher {
-  constructor(usb_interface) {
-    this.usb_interface = usb_interface;
-    this.xor_key = [];
-    this.xor_key_checksum = 0;
-    this.config_register = [];
+function update_output_functions_select(headunit_chosen_index) {
+  if (headunit_chosen_index == HEADUNIT_BRAND_INDEXES.GENERIC_RESISTIVE) {
+    change_gen_res_range_visibility(true);
+    change_output_function_visibility(false);
+  } else {
+    update_supported_outputs(headunit_chosen_index);
+    change_gen_res_range_visibility(false);
+    change_output_function_visibility(true);
   }
+}
 
-  async write_raw(packet) {
-    const result = await this.usb_interface.transferOut(ENDPOINT_OUT, packet);
-    if (result.status === "ok") {
-      console.log("Bytes written", result.bytesWritten);
-    }
-    let resp = await this.read_raw();
-    if (resp != -1) {
-      return resp;
-    } else {
-      console.log("Failed to write a packet");
-      return 0;
-    }
+function get_gen_res_selected() {
+  const myFieldset = document.getElementById("gen_res_range_fieldset");
+  let output_mapping = [];
+  for (const default_config of DEFAULT_CONFIG_ARRAY) {
+    output_mapping.push(default_config);
   }
+  const ranges = myFieldset.querySelectorAll("input");
+  let index = 6;
+  ranges.forEach((range) => {
+    output_mapping[index] = ((range.value * 1000 - 75) / (100000 / 128)) | 0;
+    index++;
+  });
+  console.log("Output mapping: " + output_mapping);
+  return output_mapping;
+}
 
-  async read_raw() {
-    const result = await this.usb_interface.transferIn(2, 64);
-    if (result.status === "ok") {
-      return result.data;
-    }
-    return -1;
+function get_functions_selected(headunit_index) {
+  const myFieldset = document.getElementById(
+    "output_function_selection_fieldset"
+  );
+  let output_mapping = [];
+  for (const default_config of DEFAULT_CONFIG_ARRAY) {
+    output_mapping.push(default_config);
   }
+  output_mapping[0] = headunit_index;
+  const selects = myFieldset.querySelectorAll("select");
+  let index = 1;
+  selects.forEach((select) => {
+    output_mapping[index] = select.selectedIndex;
+    index++;
+  });
+  console.log("Output mapping: " + output_mapping);
+  return output_mapping;
+}
 
-  async auth_and_identify() {
-    let packet = new Uint8Array(0x15);
-    const data = [
-      WCH_COMMAND_AUTH,
-      0x12,
-      0x00,
-      CH32X035_VARIANT /* Variant */,
-      CH32X035_DEVICE_TYPE /* Device type */,
-      /* "MCU ISP & WCH.CN" start */
-      0x4d,
-      0x43,
-      0x55,
-      0x20,
-      0x49,
-      0x53,
-      0x50,
-      0x20,
-      0x26,
-      0x20,
-      0x57,
-      0x43,
-      0x48,
-      0x2e,
-      0x43,
-      0x4e,
-      /* "MCU ISP & WCH.CN" end */
-    ];
-    packet.set(data, 0);
+function update_gen_res_range() {
+  /* First hide anything in the other section */
+  change_output_function_visibility(false);
+  change_gen_res_range_visibility(true);
+}
 
-    let response = await this.write_raw(packet);
-    if (response) {
-      if (response.getUint8(0x04) === CH32X035_VARIANT) {
-        console.log("Auth good!");
-      } else {
-        console.log("Failed to auth!");
-      }
-    }
-  }
+function change_output_function_visibility(is_visible) {
+  const output_function_fieldset = document.getElementById(
+    "output_function_selection_fieldset"
+  );
+  output_function_fieldset.hidden = !is_visible;
+}
 
-  async read_configuration() {
-    let packet = new Uint8Array(30);
-    const data = [WCH_COMMAND_READ_CONFIG, 0x02, 0x00, 0x1f, 0x00];
-    packet.set(data, 0);
-    let response = await this.write_raw(packet);
-    if (response) {
-      for (let index = 6; index < 30; index++) {
-        this.config_register[index - 6] = response.getUint8(index);
-      }
-      return true;
-    }
-    return -1;
-  }
+function change_gen_res_range_visibility(is_visible) {
+  const gen_res_ranges_fieldset = document.getElementById(
+    "gen_res_range_fieldset"
+  );
+  gen_res_ranges_fieldset.hidden = !is_visible;
+}
 
-  calc_unique_id_checksum() {
-    let checksum = 0;
-    console.log(this.config_register);
-    for (let i = 22 - 6; i < 30 - 6; i++) {
-      checksum += this.config_register[i];
-    }
-    console.log(checksum);
-    checksum = checksum % 256;
-    return checksum;
-  }
+async function flash_device(firmware_file_bytes) {
+  try {
+    let device = await navigator.usb.requestDevice({
+      filters: usb_device_filter_update_mode,
+    });
+    if (device) {
+      console.log("Vendor Id:", device.vendorId);
+      console.log("Product Id: ", device.productId);
+      await device.open();
+      await device.selectConfiguration(1);
+      await device.claimInterface(0);
 
-  async xor_key_calc() {
-    let packet = new Uint8Array(33);
-    const data = [WCH_COMMAND_START_XOR_KEYGEN, 0x1e, 0x00];
-    const seed = Array(30).fill(0x00);
-    data.push(...seed);
-    packet.set(data, 0);
-    let response = await this.write_raw(packet);
-    if (response) {
-      const checksum = response.getUint8(4);
-      if (checksum != 0xfe) {
-        this.xor_key_checksum = checksum;
-        let device_id_checksum = this.calc_unique_id_checksum();
-        console.log(device_id_checksum);
-        let temp = new Uint8Array(8).fill(device_id_checksum);
-        temp[7] = (device_id_checksum + CH32X035_VARIANT) & 0xff;
-        console.log(temp);
-        this.xor_key = Array.from(temp);
-        console.log(this.xor_key);
-      }
-    }
-  }
-
-  async erase_flash() {
-    let packet = new Uint8Array(7);
-    const data = [WCH_COMMAND_ERASE_FLASH, 0x04, 0x00, 0x17, 0x00, 0x00, 0x00];
-    packet.set(data, 0);
-    let response = await this.write_raw(packet);
-    if (response) {
-      return true;
-    }
-    return false;
-  }
-
-  async write_flash(data, data_length, offset) {
-    let bytes_remaining = data_length;
-    const header_length_bytes = 8;
-    const max_flash_bytes_per_packet = 56;
-    let packets_to_send = Math.floor(bytes_remaining / 56) + 1;
-    console.log("Total packets to send: ", packets_to_send);
-
-    const max_packet_length_total = 64;
-    const packet_header_length = 3;
-    const packet_padding_length = 5;
-    const max_data_packet_chunk =
-      max_packet_length_total - packet_header_length - packet_padding_length;
-
-    let encrypted_data = new Uint8Array(data_length);
-
-    // Encrypt the data
-    for (let i = 0; i < data.length; i++) {
-      encrypted_data[i] = this.xor_key[i % 8] ^ data[i];
-    }
-
-    while (bytes_remaining) {
-      let chunk_size = 0;
-      if (bytes_remaining <= max_data_packet_chunk) {
-        chunk_size = bytes_remaining;
-      } else {
-        chunk_size = max_data_packet_chunk;
-      }
-      let packet_data = [
-        WCH_COMMAND_WRITE_FLASH,
-        chunk_size + packet_padding_length,
-        0x00,
-        offset & 0xff,
-        (offset >> 8) & 0xff,
-        (offset >> 16) & 0xff,
-        (offset >> 24) & 0xff,
-        0xec, // Unknown or unimportant
-      ];
-
-      for (let index = 0; index < chunk_size; index++) {
-        packet_data.push(encrypted_data[offset + index]);
-      }
-
-      let packet = new Uint8Array(chunk_size + 8);
-      packet.set(packet_data, 0);
-
-      console.log(
-        "Encrypted packet ",
-        offset / max_flash_bytes_per_packet,
-        ": ",
-        packet.toHex()
+      let flasher_obj = new Flasher(device);
+      let succ = await flasher_obj.flash_firmware(
+        firmware_file_bytes,
+        firmware_file_bytes.length
       );
-
-      // Write to device
-      let response = await this.write_raw(packet);
-      if (!response) {
-        console.log("Failed to write btyes!!!");
+      if (succ) {
+        show_modal("Flashing Complete", "Device will auto-reboot");
+      } else {
+        show_modal(
+          "Error during flashing!",
+          "Please check the log in developer options"
+        );
       }
-
-      if (response && response.byteLength == 6) {
-        const succ = response.getUint8(4);
-        if (succ != 0) {
-          console.log("Error writing data!");
-          return;
-        }
-      }
-
-      offset += chunk_size;
-      bytes_remaining -= chunk_size;
     }
-    /* Now we write one final write packet at the end according to spec */
-    let packet_data = [
-      WCH_COMMAND_WRITE_FLASH,
-      0x05,
-      0x00,
-      offset & 0xff,
-      (offset >> 8) & 0xff,
-      (offset >> 16) & 0xff,
-      (offset >> 24) & 0xff,
-      0x00, // Unknown or unimportant
-    ];
-    let packet = new Uint8Array(8);
-    packet.set(packet_data, 0);
-    let response = await this.write_raw(packet);
-    if (response && response.byteLength == 6) {
-      const succ = response.getUint8(4);
-      if (succ != 0) {
-        console.log("Error writing data!");
-        return;
-      }
+  } catch (error) {
+    console.error(error);
+    if (error.name != "NotFoundError") {
+      show_modal(
+        "Error with USB transfer",
+        `Failed to flash the device. Please see log in developer tools \n Error: ${error} `
+      );
     }
   }
+}
 
-  async verify_user_flash(data, data_length, offset) {
-    let bytes_remaining = data_length;
-    let packets_to_send = Math.floor(data_length / 56) + 1;
-    console.log("Verifying, total packets to send: ", packets_to_send);
-
-    const max_packet_length_total = 64;
-    const packet_header_length = 3;
-    const packet_padding_length = 5;
-    const max_data_packet_chunk =
-      max_packet_length_total - packet_header_length - packet_padding_length;
-
-    let encrypted_data = new Uint8Array(data_length);
-
-    // Encrypt the data
-    for (let i = 0; i < data.length; i++) {
-      encrypted_data[i] = this.xor_key[i % 8] ^ data[i];
+async function read_device_config() {
+  try {
+    let device = await navigator.usb.requestDevice({
+      filters: usb_device_filter_config_mode,
+    });
+    await device.open();
+    await device.selectConfiguration(1);
+    await device.claimInterface(0);
+    let flasher_obj = new Flasher(device);
+    const succ =
+      flasher_obj.secondary_bootloader_request_firmware_version_string();
+    if (succ) {
+      console.log(succ);
     }
-
-    while (bytes_remaining) {
-      let chunk_size = 0;
-      if (bytes_remaining <= max_data_packet_chunk) {
-        chunk_size = bytes_remaining;
-      } else {
-        chunk_size = max_data_packet_chunk;
-      }
-      let packet_data = [
-        WCH_COMMAND_VERIFY_FLASH,
-        chunk_size + packet_padding_length,
-        0x00,
-        offset & 0xff,
-        (offset >> 8) & 0xff,
-        (offset >> 16) & 0xff,
-        (offset >> 24) & 0xff,
-        0xec, // Unknown or unimportant
-      ];
-
-      for (let index = 0; index < chunk_size; index++) {
-        packet_data.push(encrypted_data[offset + index]);
-      }
-
-      let packet = new Uint8Array(chunk_size + 8);
-
-      packet.set(packet_data, 0);
-      // Write to device
-      let response = await this.write_raw(packet);
-      if (!response) {
-        console.log("Failed to write btyes. Panic and exit!!!");
-        return;
-      }
-      if (response && response.byteLength == 6) {
-        const succ = response.getUint8(4);
-        if (succ == 0xf5) {
-          console.log("Failed to verify  Non matching data! (0xF5)");
-          return;
-        } else if (succ != 0x00) {
-          console.log(
-            "Failed to verify since code is " + succ + ". Panic exit!!!"
-          );
-          return;
-        } else {
-          console.log("Chunk verified");
-        }
-      } else {
-        console.log("Failed!");
-        return;
-      }
-      offset += chunk_size;
-      bytes_remaining -= chunk_size;
+  } catch (error) {
+    console.error(error);
+    if (error.name != "NotFoundError") {
+      console.error(`Operation failed: ${error}`);
+      show_modal(
+        "ERROR!",
+        `Failed to read device config. Please see log in developer tools\n\nError: ${error}`
+      );
     }
   }
+}
 
-  async reset_device() {
-    let packet_data = [WCH_COMMAND_END_AND_RESET, 0x01, 0x00, 0x01];
-    let packet = new Uint8Array(packet_data.length);
-    packet.set(packet_data, 0);
-    let response = await this.write_raw(packet);
-    if (response && response.byteLength == 6 && response.getUint8(4) == 0x00) {
-      console.log("Reboot succ");
+async function write_config_to_device(config_array) {
+  try {
+    let device = await navigator.usb.requestDevice({
+      filters: usb_device_filter_config_mode,
+    });
+    await device.open();
+    await device.selectConfiguration(1);
+    await device.claimInterface(0);
+    let flasher_obj = new Flasher(device);
+    const succ = flasher_obj.write_eeprom_bytes(config_array);
+    if (succ) {
+      show_modal(
+        "Success!",
+        "Config written to RE_SWC. Device will auto-reboot"
+      );
+      return true;
     } else {
-      console.log("Reboot failed, response: " + response.values.toHex());
+      show_modal(
+        "ERROR!",
+        "Failed to write config to device. Please see log in developer tools"
+      );
+    }
+  } catch (error) {
+    console.error(error);
+    if (error.name != "NotFoundError") {
+      console.error(`Operation failed: ${error}`);
+      show_modal(
+        "ERROR!",
+        `Failed to write config to device. Please see log in developer tools\n\nError: ${error}`
+      );
     }
   }
+  return false;
+}
 
-  async flash_firmware(firmware_file_bytes, firmware_file_length) {
-    let succ = await this.auth_and_identify();
-    succ = await this.read_configuration();
-    succ = await this.xor_key_calc();
-    succ = await this.erase_flash();
-    succ = await this.write_flash(
-      firmware_file_bytes,
-      firmware_file_length,
-      0x00
-    );
-    succ = await this.xor_key_calc();
-    succ = await this.verify_user_flash(
-      firmware_file_bytes,
-      firmware_file_length,
-      0x00
-    );
-    succ = await this.reset_device();
-    flashing_complete_modal.showModal();
+function show_modal(title, text) {
+  const modal = document.getElementById("modal");
+  const modal_title = document.getElementById("modal_title");
+  const modal_text = document.getElementById("modal_text");
+  modal_title.innerHTML = title;
+  if (text) {
+    modal_text.innerHTML = text;
   }
+  modal.showModal();
 }
