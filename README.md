@@ -27,7 +27,7 @@ This repo contains the Volume Knob Kit Configurator webapp source.
 
 _FW v4.0.0_
 
-|     OUTPUT     |        JVC         |      KENWOOD       |       ALPINE       |      Pioneer       |      USB HID       |        SONY        |
+|     OUTPUT     |        JVC         |      KENWOOD       |       ALPINE       |      PIONEER       |      USB HID       |        SONY        |
 | :------------: | :----------------: | :----------------: | :----------------: | :----------------: | :----------------: | :----------------: |
 |    Volume+     | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 |    Volume-     | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
