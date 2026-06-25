@@ -194,7 +194,10 @@ window.onload = function () {
     update_output_functions_select(HEADUNIT_BRAND_INDEXES.GENERIC_RESISTIVE);
   } else {
     console.error("No USB functions available in this browser");
-    show_modal("ERROR! No USB access!", "Please use a supported browser");
+    show_modal(
+      "ERROR! No WebUSB API access!",
+      'This tool utilises the WebUSB API and has been tested using Google Chrome. <br>The WebUSB API generally works on Chromium based browsers. <br> Please consult the <a href="https://developer.mozilla.org/en-US/docs/Web/API/WebUSB_API#browser_compatibility" target="_blank" rel="noopener noreferrer">compatability list</a></i>'
+    );
   }
 };
 
@@ -322,7 +325,7 @@ async function flash_device(firmware_file_bytes) {
     if (error.name != "NotFoundError") {
       show_modal(
         "Error with USB transfer",
-        `Failed to flash the device. Please see log in developer tools \n Error: ${error} `
+        `Failed to flash the device. Please see log in developer tools <br> Error: ${error} `
       );
     }
   }
@@ -348,7 +351,7 @@ async function read_device_config() {
       console.error(`Operation failed: ${error}`);
       show_modal(
         "ERROR!",
-        `Failed to read device config. Please see log in developer tools\n\nError: ${error}`
+        `Failed to read device config. Please see log in developer tools <br>Error: ${error}`
       );
     }
   }
@@ -372,7 +375,7 @@ async function write_config_to_device(config_array) {
       return true;
     } else {
       show_modal(
-        "ERROR!",
+        "Error!",
         "Failed to write config to device. Please see log in developer tools"
       );
     }
@@ -381,8 +384,8 @@ async function write_config_to_device(config_array) {
     if (error.name != "NotFoundError") {
       console.error(`Operation failed: ${error}`);
       show_modal(
-        "ERROR!",
-        `Failed to write config to device. Please see log in developer tools\n\nError: ${error}`
+        "Error!",
+        `Failed to write config to device. Please see log in developer tools <br>Error: ${error}`
       );
     }
   }
