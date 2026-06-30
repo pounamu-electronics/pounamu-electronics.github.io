@@ -134,12 +134,17 @@ window.onload = function () {
     });
 
     write_config_button.addEventListener("click", function () {
-      console.log("Writing config");
+      console.log(
+        `Writing config for ${
+          HEADUNIT_BRAND_NAMES[headunit_select.value - 1]
+        } headunit `
+      );
       let output_mapping = [];
-      if (headunit_select.value == "Generic Resistive") {
-        console.log("Getting res values");
+      if (headunit_select.value == HEADUNIT_BRAND_INDEXES.GENERIC_RESISTIVE) {
+        console.log("Getting Gen Res values");
         output_mapping = get_gen_res_selected();
       } else {
+        console.log("Getting headunit output functions");
         output_mapping = get_functions_selected(headunit_select.value);
       }
       if (output_mapping.length) {
