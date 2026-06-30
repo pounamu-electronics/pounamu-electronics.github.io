@@ -89,6 +89,8 @@ const DEFAULT_CONFIG_ARRAY = [
   5 /* 4k short press */,
   7 /* 6k long press */,
   9 /* Double press kept in but ignored */,
+  8 /* Gen Res output on time (in 10ms units) -> 80ms */,
+  2 /* Gen Res output off time (in 10ms units) -> 20ms */,
 ];
 
 window.onload = function () {
@@ -176,7 +178,11 @@ window.onload = function () {
       for (const range_output of range_outputs) {
         const output_for = range_output.htmlFor;
         if (output_for == range_input.id) {
-          range_output.innerHTML = range_input.value + "k ohms";
+          if (range_input.id.includes("time")) {
+            range_output.innerHTML = range_input.value * 10 + "ms";
+          } else {
+            range_output.innerHTML = range_input.value + "k ohms";
+          }
         }
       }
       range_input.addEventListener("input", function (event) {
@@ -184,7 +190,11 @@ window.onload = function () {
         for (const range_output of range_outputs) {
           const output_for = range_output.htmlFor;
           if (output_for == range_id) {
-            range_output.innerHTML = event.target.value + "k ohms";
+            if (range_input.id.includes("time")) {
+              range_output.innerHTML = range_input.value * 10 + "ms";
+            } else {
+              range_output.innerHTML = range_input.value + "k ohms";
+            }
           }
         }
       });
@@ -246,9 +256,14 @@ function get_gen_res_selected() {
     output_mapping.push(default_config);
   }
   const ranges = myFieldset.querySelectorAll("input");
-  let index = 6;
+  let index = 6; // Avoid reading the other headunit output configs
   ranges.forEach((range) => {
-    output_mapping[index] = ((range.value * 1000 - 75) / (100000 / 128)) | 0;
+    if (range.id.includes("time")) {
+      output_mapping[index] = range.value;
+    } else {
+      output_mapping[index] = ((range.value * 1000 - 75) / (100000 / 128)) | 0;
+    }
+
     index++;
   });
   console.log("Output mapping: " + output_mapping);
