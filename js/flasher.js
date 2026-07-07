@@ -237,9 +237,6 @@ export class Flasher {
   }
 
   async verify_user_flash(data, data_length, offset) {
-    let packets_to_send = Math.floor(data_length / 56) + 1;
-    console.log("Verifying, total packets to send: ", packets_to_send);
-
     const max_packet_length_total = 64;
     const packet_header_length = 3;
     const packet_padding_length = 5;
@@ -251,24 +248,14 @@ export class Flasher {
     let padded_data_array;
     let padded_data_array_length;
 
-    padded_data_array_length =
-      data_length % 8 ? data_length + (8 - (data_length % 8)) : data_length;
-
+    padded_data_array_length = Math.ceil(data_length / 8) * 8;
     console.log(
       `data_length: ${data_length}\nPadded array length: ${padded_data_array_length}`
     );
-
     padded_data_array = new Uint8Array(padded_data_array_length);
+    padded_data_array.fill(0xff);
     padded_data_array.set(data, 0);
-    if (padded_data_array_length != length) {
-      let padding = new Uint8Array(8 - (data_length % 8));
-      padding.fill(0xff);
-      padded_data_array.set(padding, data_length);
-    }
-
     console.log(padded_data_array);
-
-    console.log(`Padded data is of length: ${padded_data_array_length}`);
 
     let encrypted_data = new Uint8Array(padded_data_array_length);
     // Encrypt the data
@@ -312,6 +299,12 @@ export class Flasher {
         const succ = response.getUint8(4);
         if (succ == 0xf5) {
           console.log("Failed to verify  Non matching data! (0xF5)");
+          console.log(
+            "Encrypted packet ",
+            offset / max_data_packet_chunk,
+            ": ",
+            packet.toHex()
+          );
           return false;
         } else if (succ != 0x00) {
           console.log(
