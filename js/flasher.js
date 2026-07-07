@@ -136,7 +136,8 @@ export class Flasher {
 
   async erase_flash() {
     let packet = new Uint8Array(7);
-    const data = [WCH_COMMAND_ERASE_FLASH, 0x04, 0x00, 0x17, 0x00, 0x00, 0x00];
+    const device_memory_sectors = 0x1f;
+    const data = [WCH_COMMAND_ERASE_FLASH, 0x04, 0x00, 0x1f, 0x00, 0x00, 0x00];
     packet.set(data, 0);
     let response = await this.write_raw(packet);
     if (response) {
@@ -152,8 +153,7 @@ export class Flasher {
     const max_data_packet_chunk =
       max_packet_length_total - packet_header_length - packet_padding_length;
     let bytes_remaining = data_length;
-    let packets_to_send =
-      Math.floor(bytes_remaining / max_data_packet_chunk) + 1;
+    let packets_to_send = Math.ceil(data_length / max_data_packet_chunk);
     console.log("Total packets to send: ", packets_to_send);
 
     let encrypted_data = new Uint8Array(data_length);
