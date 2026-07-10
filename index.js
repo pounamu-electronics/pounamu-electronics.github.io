@@ -1,6 +1,6 @@
 import { Flasher } from "./js/flasher.js";
 
-const SOFTWARE_VERSION = "2.0.1";
+const SOFTWARE_VERSION = "2.0.2";
 
 /**
  * Create filters for WebUSB
