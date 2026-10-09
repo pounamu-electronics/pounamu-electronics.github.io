@@ -2,7 +2,14 @@
 
 This repo contains the Volume Knob Kit Configurator webapp source.
 
+All source files sit inside `src/` directory. This repo uses Bun to compile all source into single output file (index.html) at the root of the directory
+
 ## Revision History
+
+### v2.1.0
+
+- Integrated Bun to compile all HTML, CSS and JS into single HTML executable. This allows people to save the raw HTML
+  and execute without any internet making this a portable tool.
 
 ### v2.0.0
 
@@ -36,6 +43,14 @@ _FW v4.0.0_
 | Previous Track | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 |   Play/Pause   |        :x:         | :heavy_check_mark: |        :x:         |        :x:         | :heavy_check_mark: |        :x:         |
 | Change Source  |        :x:         |        :x:         |        :x:         | :heavy_check_mark: |        :x:         |        :x:         |
+
+## Single File Output Compliling
+
+Use Bun to compile the raw source files into single file output
+
+```
+bun build --compile --target=browser ./src/reswc_updater.html --outfile index.html
+```
 
 ## Found a bug or issue?
 
